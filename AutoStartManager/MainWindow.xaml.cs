@@ -1,0 +1,78 @@
+﻿using System.Windows;
+using System.Windows.Input;
+using AutoStartManager.Services;
+using AutoStartManager.ViewModels;
+
+namespace AutoStartManager;
+
+public partial class MainWindow
+{
+    public MainViewModel ViewModel { get; }
+
+    public MainWindow()
+    {
+        InitializeComponent();
+        ViewModel = new MainViewModel();
+        DataContext = ViewModel;
+        Loaded += OnLoaded;
+        Closing += OnClosing;
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        var pos = WindowStateService.Load();
+        if (!double.IsNaN(pos.Left)) Left = pos.Left;
+        if (!double.IsNaN(pos.Top)) Top = pos.Top;
+        if (pos.Width > 0) Width = pos.Width;
+        if (pos.Height > 0) Height = pos.Height;
+        if (pos.IsMaximized) WindowState = System.Windows.WindowState.Maximized;
+    }
+
+    private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        WindowStateService.Save(new WindowPosition
+        {
+            Left = Left,
+            Top = Top,
+            Width = Width,
+            Height = Height,
+            IsMaximized = WindowState == System.Windows.WindowState.Maximized
+        });
+    }
+
+    private void DropZone_PreviewDragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void DropZone_PreviewDrop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop) &&
+            e.Data.GetData(DataFormats.FileDrop) is string[] files &&
+            files.Length > 0)
+        {
+            ViewModel.AddFile(files[0]);
+        }
+    }
+
+    private void DropZone_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        ViewModel.BrowseAndAddCommand.Execute(null);
+    }
+
+    private void AppSearchBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        Dispatcher.BeginInvoke(() => ViewModel.AppSearchText = string.Empty);
+    }
+
+    private void AddInstalledApp_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement element && element.DataContext is Models.InstalledApp app)
+        {
+            ViewModel.AddInstalledApp(app);
+        }
+    }
+}
