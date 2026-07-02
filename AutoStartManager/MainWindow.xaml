@@ -3,13 +3,16 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:models="clr-namespace:AutoStartManager.Models"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="AutoStart Manager"
         Height="600" Width="550"
         MinHeight="400" MinWidth="450"
-        Topmost="True"
         WindowStartupLocation="CenterScreen"
         Background="#1E1E1E"
         Foreground="White">
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="32" UseAeroCaptionButtons="True" CornerRadius="0" GlassFrameThickness="0"/>
+    </WindowChrome.WindowChrome>
     <Window.Resources>
         <ResourceDictionary>
 
@@ -32,12 +35,12 @@
                                                   VerticalAlignment="Center"/>
                             </Border>
                             <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="border" Property="Background" Value="#3A3A3A"/>
-                                </Trigger>
-                                <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="border" Property="Background" Value="#2A2A2A"/>
-                                </Trigger>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter TargetName="border" Property="Background" Value="#333333"/>
+                    </Trigger>
+                    <Trigger Property="IsPressed" Value="True">
+                        <Setter TargetName="border" Property="Background" Value="#252525"/>
+                    </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Setter.Value>
@@ -87,20 +90,59 @@
 
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="32"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="2" Padding="16,12,16,18" Background="Transparent">
+        <Border Grid.Row="0" Background="Transparent">
             <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Border Grid.Column="0"
-                        Margin="44,0,0,0"
-                        CornerRadius="8"
+                <TextBlock Text="AutoStart Manager"
+                           Foreground="White"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,0"/>
+                <ToggleButton x:Name="PinToggle"
+                              IsChecked="True"
+                              ToolTip="Always on top"
+                              Content="📌"
+                              Click="PinToggle_Click"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Center"
+                              Width="32" Height="32"
+                              FontSize="14"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              Foreground="#CCCCCC"
+                              shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+            </Grid>
+        </Border>
+
+        <Border Grid.RowSpan="4"
+                x:Name="ToastBorder"
+                VerticalAlignment="Bottom"
+                HorizontalAlignment="Center"
+                MaxWidth="400"
+                Margin="0,0,0,40"
+                Padding="16,8"
+                CornerRadius="6"
+                Background="#2D2D2D"
+                BorderThickness="1"
+                BorderBrush="#555555"
+                Opacity="0"
+                IsHitTestVisible="False">
+            <TextBlock x:Name="ToastText"
+                       Foreground="White"
+                       FontSize="13"
+                       TextAlignment="Center"
+                       TextWrapping="NoWrap"/>
+        </Border>
+
+        <Border Grid.Row="3" Padding="32,12,32,18" Background="Transparent">
+            <Grid>
+                <Border CornerRadius="8"
                         Background="Transparent"
                         BorderThickness="1"
                         BorderBrush="#555555">
@@ -112,6 +154,7 @@
                                  CaretBrush="White"
                                  BorderThickness="0"
                                  VerticalContentAlignment="Center"
+                                 MinHeight="38"
                                  Padding="10,0"
                                  Margin="0,0,30,0"/>
                         <TextBlock Text="Filter startup items..."
@@ -131,48 +174,26 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
-                        <Button Command="{Binding ClearSearchCommand}"
-                                HorizontalAlignment="Right"
-                                VerticalAlignment="Center"
-                                Width="28" Height="28"
-                                Margin="0,0,4,0"
-                                Padding="0"
-                                FontSize="14"
-                                Content="✕"
-                                BorderThickness="0"
-                                Visibility="{Binding HasSearchText, Converter={StaticResource BoolToVis}}">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Background" Value="Transparent"/>
-                                    <Setter Property="BorderThickness" Value="0"/>
-                                    <Setter Property="Foreground" Value="#999999"/>
-                                    <Style.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Background" Value="#555555"/>
-                                        </Trigger>
-                                        <Trigger Property="IsPressed" Value="True">
-                                            <Setter Property="Background" Value="#444444"/>
-                                        </Trigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
+                                <Button Command="{Binding ClearSearchCommand}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Width="28" Height="28"
+                                        Margin="0,0,4,0"
+                                        Padding="0"
+                                        FontSize="14"
+                                        Content="✕"
+                                        BorderThickness="0"
+                                        Foreground="#999999"
+                                        Style="{StaticResource FlatButton}"
+                                        Visibility="{Binding HasSearchText, Converter={StaticResource BoolToVis}}"/>
                     </Grid>
                 </Border>
-                <Button Grid.Column="1"
-                        Margin="10,0,0,0"
-                        Content="⟳"
-                        ToolTip="Refresh"
-                        Command="{Binding RefreshCommand}"
-                        Style="{StaticResource FlatButton}"
-                        Height="40" Width="40"
-                        FontSize="24"/>
             </Grid>
         </Border>
 
-        <ScrollViewer Grid.Row="1"
+        <ScrollViewer Grid.Row="2"
                       Margin="0,8,0,8"
-                      VerticalScrollBarVisibility="Hidden">
+                      VerticalScrollBarVisibility="Auto">
              <ItemsControl ItemsSource="{Binding Items}"
                           BorderThickness="0"
                           Background="Transparent"
@@ -241,7 +262,7 @@
             </ItemsControl>
         </ScrollViewer>
 
-        <Border Grid.Row="0"
+        <Border Grid.Row="1"
                 Margin="16,12,16,4"
                 BorderThickness="1"
                 BorderBrush="#444444"
@@ -273,7 +294,7 @@
                                  Margin="0,0,0,0"/>
                         <TextBlock Text="Search installed apps..."
                                    FontSize="12"
-                                   Foreground="#777777"
+                                   Foreground="White"
                                    IsHitTestVisible="False"
                                    VerticalAlignment="Center"
                                    Padding="12,0,0,0">
@@ -297,27 +318,13 @@
                                 FontSize="12"
                                 Content="✕"
                                 BorderThickness="0"
-                                Visibility="{Binding HasAppSearchText, Converter={StaticResource BoolToVis}}">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Background" Value="Transparent"/>
-                                    <Setter Property="BorderThickness" Value="0"/>
-                                    <Setter Property="Foreground" Value="#999999"/>
-                                    <Style.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Background" Value="#555555"/>
-                                        </Trigger>
-                                        <Trigger Property="IsPressed" Value="True">
-                                            <Setter Property="Background" Value="#444444"/>
-                                        </Trigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                    </Grid>
-                </Border>
+                                Foreground="#999999"
+                                Style="{StaticResource FlatButton}"
+                                Visibility="{Binding HasAppSearchText, Converter={StaticResource BoolToVis}}"/>
+                     </Grid>
+                 </Border>
 
-                <ScrollViewer Grid.Row="1"
+                 <ScrollViewer Grid.Row="1"
                               Margin="6,6,6,4"
                               MaxHeight="220"
                               VerticalScrollBarVisibility="Auto"
@@ -326,40 +333,48 @@
                                   Background="Transparent"
                                   Foreground="White">
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="models:InstalledApp">
-                                <Border Padding="8,4"
-                                        Background="Transparent"
-                                        CornerRadius="4">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Button Grid.Column="0"
-                                                Content="+"
-                                                ToolTip="Add to startup"
-                                                Click="AddInstalledApp_Click"
-                                                Style="{StaticResource FlatButton}"
-                                                FontSize="18"
-                                                FontWeight="Bold"
-                                                Foreground="#66CC66"
-                                                Height="28" Width="28"
-                                                VerticalAlignment="Center"
-                                                Margin="0,0,4,0"/>
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Name}"
-                                                       FontSize="13"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="White"/>
-                                            <TextBlock Text="{Binding TargetPath}"
-                                                       FontSize="10"
-                                                       Foreground="#999999"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       MaxWidth="300"/>
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
+                             <DataTemplate DataType="models:InstalledApp">
+                                  <Border Padding="0,5,8,4"
+                                         Background="Transparent"
+                                         CornerRadius="4">
+                                     <Grid>
+                                         <Grid.ColumnDefinitions>
+                                             <ColumnDefinition Width="Auto"/>
+                                             <ColumnDefinition Width="*"/>
+                                         </Grid.ColumnDefinitions>
+                                         <Grid.RowDefinitions>
+                                             <RowDefinition Height="Auto"/>
+                                             <RowDefinition Height="Auto"/>
+                                         </Grid.RowDefinitions>
+                                         <Button Grid.Row="0" Grid.Column="0"
+                                                 Grid.RowSpan="2"
+                                                 Content="+"
+                                                 ToolTip="Add to startup"
+                                                 Command="{Binding DataContext.AddInstalledAppCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                 CommandParameter="{Binding}"
+                                                 Style="{StaticResource FlatButton}"
+                                                 FontSize="20"
+                                                 FontWeight="Bold"
+                                                 Foreground="#66CC66"
+                                                 Width="32"
+                                                 VerticalAlignment="Stretch"
+                                                 Margin="0,0,4,0"/>
+                                          <TextBlock Grid.Row="0" Grid.Column="1"
+                                                     Text="{Binding Name}"
+                                                     FontSize="13"
+                                                     FontWeight="SemiBold"
+                                                     Foreground="White"
+                                                     VerticalAlignment="Center"
+                                                     HorizontalAlignment="Left"/>
+                                          <TextBlock Grid.Row="1" Grid.Column="1"
+                                                     Text="{Binding TargetPath}"
+                                                     FontSize="10"
+                                                     Foreground="#999999"
+                                                     TextTrimming="CharacterEllipsis"
+                                                     HorizontalAlignment="Left"/>
+                                     </Grid>
+                                 </Border>
+                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>

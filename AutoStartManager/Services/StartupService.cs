@@ -155,17 +155,18 @@ public class StartupService
     public void Add(string filePath)
     {
         var ext = Path.GetExtension(filePath).ToLowerInvariant();
-        if (ext == ".exe")
-        {
-            var shortcutPath = Path.Combine(GetStartupFolderPath(), Path.GetFileNameWithoutExtension(filePath) + ".lnk");
-            CreateShortcut(filePath, shortcutPath);
-        }
-        else if (ext == ".lnk")
-        {
-            var destPath = Path.Combine(GetStartupFolderPath(), Path.GetFileName(filePath));
-            if (!File.Exists(destPath))
-                File.Copy(filePath, destPath);
-        }
+        if (ext != ".exe" && ext != ".lnk")
+            throw new ArgumentException("Only .exe and .lnk files are supported.");
+
+        var target = ext == ".lnk" ? ResolveShortcut(filePath) : filePath;
+        if (string.IsNullOrEmpty(target)) target = filePath;
+        var name = Path.GetFileNameWithoutExtension(filePath);
+
+        using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true)
+            ?? throw new InvalidOperationException("Cannot open registry key.");
+        if (key.GetValue(name) != null)
+            throw new InvalidOperationException($"\"{name}\" is already in the startup list.");
+        key.SetValue(name, target);
     }
 
     public static string GetStartupFolderPath()
@@ -193,30 +194,18 @@ public class StartupService
     {
         try
         {
-            var shellLink = (IShellLink)new ShellLink();
-            shellLink.Resolve(IntPtr.Zero, 0x0001);
+            var shellLink = new ShellLink();
+            ((IPersistFile)shellLink).Load(shortcutPath, 0);
+            ((IShellLink)shellLink).Resolve(IntPtr.Zero, 0x0001);
             var targetPath = new StringBuilder(260);
             var pfd = new WIN32_FIND_DATA();
-            shellLink.GetPath(targetPath, targetPath.Capacity, out pfd, 0);
+            ((IShellLink)shellLink).GetPath(targetPath, targetPath.Capacity, out pfd, 0);
             return targetPath.ToString();
         }
         catch
         {
             return shortcutPath;
         }
-    }
-
-    private static void CreateShortcut(string targetExe, string shortcutPath)
-    {
-        try
-        {
-            var shellLink = (IShellLink)new ShellLink();
-            shellLink.SetPath(targetExe);
-            shellLink.SetDescription($"Auto-start: {Path.GetFileNameWithoutExtension(targetExe)}");
-            var saveFile = (IPersistFile)shellLink;
-            saveFile.Save(shortcutPath, false);
-        }
-        catch { }
     }
 
     [ComImport]

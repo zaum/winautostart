@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media.Animation;
 using AutoStartManager.Services;
 using AutoStartManager.ViewModels;
 
@@ -14,8 +15,30 @@ public partial class MainWindow
         InitializeComponent();
         ViewModel = new MainViewModel();
         DataContext = ViewModel;
+        ViewModel.ToastRequested += ShowToast;
         Loaded += OnLoaded;
         Closing += OnClosing;
+    }
+
+    private void ShowToast(string message)
+    {
+        ToastText.Text = message;
+        ToastBorder.BeginAnimation(UIElement.OpacityProperty, null);
+        ToastBorder.Opacity = 0;
+
+        var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200));
+        var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(500));
+        fadeOut.BeginTime = TimeSpan.FromSeconds(4);
+
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(fadeIn);
+        storyboard.Children.Add(fadeOut);
+        Storyboard.SetTarget(fadeIn, ToastBorder);
+        Storyboard.SetTarget(fadeOut, ToastBorder);
+        Storyboard.SetTargetProperty(fadeIn, new PropertyPath(UIElement.OpacityProperty));
+        Storyboard.SetTargetProperty(fadeOut, new PropertyPath(UIElement.OpacityProperty));
+
+        storyboard.Begin();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -66,6 +89,11 @@ public partial class MainWindow
     private void AppSearchBox_LostFocus(object sender, RoutedEventArgs e)
     {
         Dispatcher.BeginInvoke(() => ViewModel.AppSearchText = string.Empty);
+    }
+
+    private void PinToggle_Click(object sender, RoutedEventArgs e)
+    {
+        Topmost = PinToggle.IsChecked == true;
     }
 
     private void AddInstalledApp_Click(object sender, RoutedEventArgs e)

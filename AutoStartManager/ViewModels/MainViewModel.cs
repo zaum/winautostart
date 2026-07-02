@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
@@ -20,6 +21,8 @@ public class MainViewModel : ObservableObject
     private ICollectionView? _filteredView;
     private ICollectionView? _installedAppsView;
     private readonly DispatcherTimer _searchTimer;
+
+    public event Action<string>? ToastRequested;
 
     public ObservableCollection<StartupItem> Items { get; } = new();
     public ObservableCollection<InstalledApp> InstalledApps { get; } = new();
@@ -144,31 +147,28 @@ public class MainViewModel : ObservableObject
         if (app == null) return;
         try
         {
+            if (Items.Any(i => i.Name.Equals(app.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                ToastRequested?.Invoke($"\"{app.Name}\" is already in the startup list.");
+                return;
+            }
             _startupService.Add(app.Path);
             LoadItems();
             AppSearchText = string.Empty;
+            ToastRequested?.Invoke($"\"{app.Name}\" added to startup.");
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"Error: {ex.Message}", "Error");
+            ToastRequested?.Invoke($"Failed to add \"{app.Name}\": {ex.Message}");
         }
     }
 
     private void DeleteItem(StartupItem? item)
     {
         if (item == null) return;
-
-        var result = System.Windows.MessageBox.Show(
-            $"Are you sure you want to remove \"{item.Name}\" from startup?",
-            "Remove Startup Item",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
-
-        if (result == MessageBoxResult.Yes)
-        {
-            _startupService.Delete(item);
-            Items.Remove(item);
-        }
+        _startupService.Delete(item);
+        Items.Remove(item);
+        ToastRequested?.Invoke($"\"{item.Name}\" removed from startup.");
     }
 
     private void OpenItemInExplorer(StartupItem? item)
@@ -209,16 +209,27 @@ public class MainViewModel : ObservableObject
         var ext = Path.GetExtension(filePath).ToLowerInvariant();
         if (ext != ".exe" && ext != ".lnk")
         {
-            System.Windows.MessageBox.Show(
-                "Please select an executable (.exe) or shortcut (.lnk) file.",
-                "Invalid File",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            ToastRequested?.Invoke("Please select an executable (.exe) or shortcut (.lnk) file.");
             return;
         }
 
-        _startupService.Add(filePath);
-        LoadItems();
+        var name = Path.GetFileNameWithoutExtension(filePath);
+        if (Items.Any(i => i.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        {
+            ToastRequested?.Invoke($"\"{name}\" is already in the startup list.");
+            return;
+        }
+
+        try
+        {
+            _startupService.Add(filePath);
+            LoadItems();
+            ToastRequested?.Invoke($"\"{name}\" added to startup.");
+        }
+        catch (Exception ex)
+        {
+            ToastRequested?.Invoke($"Failed to add \"{name}\": {ex.Message}");
+        }
     }
 
     private void ClearSearch()
