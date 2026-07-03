@@ -50,6 +50,7 @@ public partial class MainWindow
         if (pos.Width > 0) Width = pos.Width;
         if (pos.Height > 0) Height = pos.Height;
         if (pos.IsMaximized) WindowState = System.Windows.WindowState.Maximized;
+        Topmost = PinToggle.IsChecked == true;
         AppSearchBox.Focus();
     }
 
