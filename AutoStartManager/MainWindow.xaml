@@ -11,7 +11,7 @@
         Background="#1E1E1E"
         Foreground="White">
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="32" UseAeroCaptionButtons="True" CornerRadius="0" GlassFrameThickness="0"/>
+        <WindowChrome CaptionHeight="32" UseAeroCaptionButtons="False" CornerRadius="0" GlassFrameThickness="0" ResizeBorderThickness="6"/>
     </WindowChrome.WindowChrome>
     <Window.Resources>
         <ResourceDictionary>
@@ -45,6 +45,43 @@
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
+            </Style>
+
+            <Style x:Key="PinButton" TargetType="ToggleButton">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Foreground" Value="#CCCCCC"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border Name="border"
+                                    Background="{TemplateBinding Background}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    CornerRadius="0">
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="border" Property="Background" Value="#505050"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="border" Property="Background" Value="#252525"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="IsChecked" Value="True">
+                        <Setter Property="Content" Value="📌"/>
+                    </Trigger>
+                    <Trigger Property="IsChecked" Value="False">
+                        <Setter Property="Content" Value="📍"/>
+                    </Trigger>
+                </Style.Triggers>
             </Style>
 
             <Style TargetType="CheckBox">
@@ -104,40 +141,85 @@
                            FontWeight="SemiBold"
                            VerticalAlignment="Center"
                            Margin="12,0,0,0"/>
-                <ToggleButton x:Name="PinToggle"
-                              IsChecked="True"
-                              ToolTip="Always on top"
-                              Content="📌"
-                              Click="PinToggle_Click"
-                              HorizontalAlignment="Right"
-                              VerticalAlignment="Center"
-                              Width="32" Height="32"
-                              FontSize="14"
-                              Background="Transparent"
-                              BorderThickness="0"
-                              Foreground="#CCCCCC"
-                              shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center">
+                    <ToggleButton x:Name="PinToggle"
+                                  IsChecked="True"
+                                  ToolTip="Always on top"
+                                  Click="PinToggle_Click"
+                                  Width="38" Height="32"
+                                  FontSize="14"
+                                  Background="Transparent"
+                                  BorderThickness="0"
+                                  Foreground="#CCCCCC"
+                                  Style="{StaticResource PinButton}"
+                                  shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+                    <Button x:Name="MinimizeButton"
+                            ToolTip="Minimize"
+                            Content="─"
+                            Click="MinimizeButton_Click"
+                            Width="46" Height="32"
+                            FontSize="16"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Foreground="#CCCCCC"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource FlatButton}">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#505050"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button x:Name="MaximizeButton"
+                            ToolTip="Maximize"
+                            Content="☐"
+                            Click="MaximizeButton_Click"
+                            Width="46" Height="32"
+                            FontSize="14"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Foreground="#CCCCCC"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource FlatButton}">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#505050"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button x:Name="CloseButton"
+                            ToolTip="Close"
+                            Content="✕"
+                            Click="CloseButton_Click"
+                            Width="46" Height="32"
+                            FontSize="16"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Foreground="#CCCCCC"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource FlatButton}">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#C42B1C"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </StackPanel>
             </Grid>
-        </Border>
-
-        <Border Grid.RowSpan="4"
-                x:Name="ToastBorder"
-                VerticalAlignment="Bottom"
-                HorizontalAlignment="Center"
-                MaxWidth="400"
-                Margin="0,0,0,40"
-                Padding="16,8"
-                CornerRadius="6"
-                Background="#2D2D2D"
-                BorderThickness="1"
-                BorderBrush="#555555"
-                Opacity="0"
-                IsHitTestVisible="False">
-            <TextBlock x:Name="ToastText"
-                       Foreground="White"
-                       FontSize="13"
-                       TextAlignment="Center"
-                       TextWrapping="NoWrap"/>
         </Border>
 
         <Border Grid.Row="3" Padding="32,12,32,18" Background="Transparent">
@@ -283,7 +365,6 @@
                         BorderBrush="#555555">
                     <Grid>
                         <TextBox Text="{Binding AppSearchText, UpdateSourceTrigger=PropertyChanged}"
-                                 LostFocus="AppSearchBox_LostFocus"
                                  Background="Transparent"
                                  Foreground="White"
                                  CaretBrush="White"
@@ -333,48 +414,40 @@
                                   Background="Transparent"
                                   Foreground="White">
                         <ItemsControl.ItemTemplate>
-                             <DataTemplate DataType="models:InstalledApp">
-                                  <Border Padding="0,5,8,4"
-                                         Background="Transparent"
-                                         CornerRadius="4">
-                                     <Grid>
-                                         <Grid.ColumnDefinitions>
-                                             <ColumnDefinition Width="Auto"/>
-                                             <ColumnDefinition Width="*"/>
-                                         </Grid.ColumnDefinitions>
-                                         <Grid.RowDefinitions>
-                                             <RowDefinition Height="Auto"/>
-                                             <RowDefinition Height="Auto"/>
-                                         </Grid.RowDefinitions>
-                                         <Button Grid.Row="0" Grid.Column="0"
-                                                 Grid.RowSpan="2"
-                                                 Content="+"
-                                                 ToolTip="Add to startup"
-                                                 Command="{Binding DataContext.AddInstalledAppCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                 CommandParameter="{Binding}"
-                                                 Style="{StaticResource FlatButton}"
-                                                 FontSize="20"
-                                                 FontWeight="Bold"
-                                                 Foreground="#66CC66"
-                                                 Width="32"
-                                                 VerticalAlignment="Stretch"
-                                                 Margin="0,0,4,0"/>
-                                          <TextBlock Grid.Row="0" Grid.Column="1"
-                                                     Text="{Binding Name}"
-                                                     FontSize="13"
-                                                     FontWeight="SemiBold"
-                                                     Foreground="White"
-                                                     VerticalAlignment="Center"
-                                                     HorizontalAlignment="Left"/>
-                                          <TextBlock Grid.Row="1" Grid.Column="1"
-                                                     Text="{Binding TargetPath}"
-                                                     FontSize="10"
-                                                     Foreground="#999999"
-                                                     TextTrimming="CharacterEllipsis"
-                                                     HorizontalAlignment="Left"/>
-                                     </Grid>
-                                 </Border>
-                             </DataTemplate>
+                            <DataTemplate DataType="models:InstalledApp">
+                                <Border Padding="8,4"
+                                        Background="Transparent"
+                                        CornerRadius="4">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0"
+                                                Content="+"
+                                                ToolTip="Add to startup"
+                                                Click="AddInstalledApp_Click"
+                                                Style="{StaticResource FlatButton}"
+                                                FontSize="18"
+                                                FontWeight="Bold"
+                                                Foreground="#66CC66"
+                                                Height="28" Width="28"
+                                                VerticalAlignment="Center"
+                                                Margin="0,0,4,0"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="White"/>
+                                            <TextBlock Text="{Binding TargetPath}"
+                                                       FontSize="10"
+                                                       Foreground="#999999"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       MaxWidth="300"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
@@ -403,6 +476,27 @@
                     </StackPanel>
                 </Border>
             </Grid>
+        </Border>
+
+        <Border Grid.RowSpan="4"
+                x:Name="ToastBorder"
+                VerticalAlignment="Bottom"
+                HorizontalAlignment="Center"
+                MaxWidth="550"
+                Margin="0,0,0,50"
+                Padding="28,14"
+                CornerRadius="8"
+                Background="#2D2D2D"
+                BorderThickness="1"
+                BorderBrush="#555555"
+                Panel.ZIndex="999"
+                Opacity="0"
+                IsHitTestVisible="False">
+            <TextBlock x:Name="ToastText"
+                       Foreground="White"
+                       FontSize="16"
+                       TextAlignment="Center"
+                       TextWrapping="NoWrap"/>
         </Border>
     </Grid>
 </Window>

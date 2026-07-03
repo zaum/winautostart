@@ -18,6 +18,7 @@ public partial class MainWindow
         ViewModel.ToastRequested += ShowToast;
         Loaded += OnLoaded;
         Closing += OnClosing;
+        StateChanged += OnStateChanged;
     }
 
     private void ShowToast(string message)
@@ -94,6 +95,29 @@ public partial class MainWindow
     private void PinToggle_Click(object sender, RoutedEventArgs e)
     {
         Topmost = PinToggle.IsChecked == true;
+    }
+
+    private void MinimizeButton_Click(object sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+    }
+
+    private void MaximizeButton_Click(object sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+        MaximizeButton.Content = WindowState == WindowState.Maximized ? "❐" : "☐";
+    }
+
+    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        Close();
+    }
+
+    private void OnStateChanged(object? sender, EventArgs e)
+    {
+        MaximizeButton.Content = WindowState == WindowState.Maximized ? "❐" : "☐";
     }
 
     private void AddInstalledApp_Click(object sender, RoutedEventArgs e)

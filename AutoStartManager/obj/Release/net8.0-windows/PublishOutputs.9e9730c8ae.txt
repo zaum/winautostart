@@ -1,0 +1,7 @@
+I:\autostart\publish\AutoStartManager.exe
+I:\autostart\publish\AutoStartManager.dll
+I:\autostart\publish\AutoStartManager.deps.json
+I:\autostart\publish\AutoStartManager.runtimeconfig.json
+I:\autostart\publish\AutoStartManager.pdb
+I:\autostart\publish\Wpf.Ui.dll
+I:\autostart\publish\Wpf.Ui.Abstractions.dll
