@@ -4,7 +4,7 @@
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:models="clr-namespace:AutoStartManager.Models"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="AutoStart Manager"
+        Title="AutoStart Manager - Manage Windows startup applications"
         Height="600" Width="550"
         MinHeight="400" MinWidth="450"
         WindowStartupLocation="CenterScreen"
@@ -122,6 +122,63 @@
                     </Setter.Value>
                 </Setter>
             </Style>
+            <Style x:Key="FlatScrollBar" TargetType="ScrollBar">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Width" Value="8"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Grid Background="Transparent">
+                                <Track x:Name="PART_Track"
+                                       Grid.Row="0"
+                                       IsDirectionReversed="True">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.PageUpCommand" Background="Transparent"/>
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.PageDownCommand" Background="Transparent"/>
+                                    </Track.IncreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb>
+                                            <Thumb.Template>
+                                                <ControlTemplate TargetType="Thumb">
+                                                    <Border x:Name="thumb" CornerRadius="4" Background="#555555" Margin="1,0"/>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="thumb" Property="Background" Value="#777777"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Thumb.Template>
+                                        </Thumb>
+                                    </Track.Thumb>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style TargetType="ScrollViewer">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollViewer">
+                            <Grid>
+                                <ScrollContentPresenter CanContentScroll="{TemplateBinding CanContentScroll}"
+                                                        Margin="{TemplateBinding Padding}"/>
+                                <ScrollBar x:Name="PART_VerticalScrollBar"
+                                           Style="{StaticResource FlatScrollBar}"
+                                           Value="{TemplateBinding VerticalOffset}"
+                                           Maximum="{TemplateBinding ScrollableHeight}"
+                                           ViewportSize="{TemplateBinding ViewportHeight}"
+                                           Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Stretch"/>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -135,7 +192,7 @@
 
         <Border Grid.Row="0" Background="Transparent">
             <Grid>
-                <TextBlock Text="AutoStart Manager"
+                <TextBlock Text="AutoStart Manager — Manage startup apps"
                            Foreground="White"
                            FontSize="13"
                            FontWeight="SemiBold"
@@ -364,7 +421,8 @@
                         BorderThickness="1"
                         BorderBrush="#555555">
                     <Grid>
-                        <TextBox Text="{Binding AppSearchText, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox x:Name="AppSearchBox"
+                                 Text="{Binding AppSearchText, UpdateSourceTrigger=PropertyChanged}"
                                  Background="Transparent"
                                  Foreground="White"
                                  CaretBrush="White"

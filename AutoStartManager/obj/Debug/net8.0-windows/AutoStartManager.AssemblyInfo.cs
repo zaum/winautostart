@@ -12,8 +12,10 @@ using System.Reflection;
 
 [assembly: System.Reflection.AssemblyCompanyAttribute("AutoStartManager")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyDescriptionAttribute("Manage Windows startup applications — view, add, remove, and toggle startup items" +
+    ".")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1a6faa3d3b6ae7c6aa54a284527a8d23f1327500")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+86bd4a4799aa59d3451aeca8598b9b049409dc7d")]
 [assembly: System.Reflection.AssemblyProductAttribute("AutoStartManager")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AutoStartManager")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
