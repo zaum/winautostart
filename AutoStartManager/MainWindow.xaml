@@ -11,7 +11,7 @@
         Background="#1E1E1E"
         Foreground="White">
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="32" UseAeroCaptionButtons="False" CornerRadius="0" GlassFrameThickness="0" ResizeBorderThickness="6"/>
+        <WindowChrome CaptionHeight="40" UseAeroCaptionButtons="False" CornerRadius="0" GlassFrameThickness="0" ResizeBorderThickness="6"/>
     </WindowChrome.WindowChrome>
     <Window.Resources>
         <ResourceDictionary>
@@ -181,12 +181,19 @@
                     </Setter.Value>
                 </Setter>
             </Style>
+
+            <Style TargetType="TextBlock">
+                <Setter Property="TextElement.CharacterSpacing" Value="80"/>
+            </Style>
+            <Style TargetType="TextBox">
+                <Setter Property="TextElement.CharacterSpacing" Value="80"/>
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="32"/>
+            <RowDefinition Height="40"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
@@ -207,18 +214,18 @@
                                   IsChecked="True"
                                   ToolTip="Always on top"
                                   Click="PinToggle_Click"
-                                  Width="38" Height="32"
-                                  FontSize="14"
-                                  Background="Transparent"
-                                  BorderThickness="0"
-                                  Foreground="#CCCCCC"
-                                  Style="{StaticResource PinButton}"
-                                  shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+                                   Width="38" Height="40"
+                                   FontSize="14"
+                                   Background="Transparent"
+                                   BorderThickness="0"
+                                   Foreground="#CCCCCC"
+                                   Style="{StaticResource PinButton}"
+                                   shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
                     <Button x:Name="MinimizeButton"
                             ToolTip="Minimize"
                             Content="─"
                             Click="MinimizeButton_Click"
-                            Width="46" Height="32"
+                            Width="46" Height="40"
                             FontSize="16"
                             Background="Transparent"
                             BorderThickness="0"
@@ -239,7 +246,7 @@
                             ToolTip="Maximize"
                             Content="☐"
                             Click="MaximizeButton_Click"
-                            Width="46" Height="32"
+                            Width="46" Height="40"
                             FontSize="14"
                             Background="Transparent"
                             BorderThickness="0"
@@ -260,7 +267,7 @@
                             ToolTip="Close"
                             Content="✕"
                             Click="CloseButton_Click"
-                            Width="46" Height="32"
+                            Width="46" Height="40"
                             FontSize="16"
                             Background="Transparent"
                             BorderThickness="0"
@@ -430,7 +437,7 @@
                                  CaretBrush="White"
                                  BorderThickness="0"
                                  VerticalContentAlignment="Center"
-                                 MinHeight="32"
+                                 MinHeight="40"
                                  Padding="10,0,30,0"
                                  Margin="0,0,0,0"/>
                         <TextBlock Text="Search installed apps..."

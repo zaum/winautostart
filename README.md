@@ -1,0 +1,38 @@
+# AutoStart Manager
+
+A lightweight Windows tool to manage startup applications — view, add, remove, and toggle startup items.
+
+![Screenshot](screenshot.png)
+
+## Features
+
+- **View startup items** — list all programs that run at startup from the registry and the Startup folder
+- **Toggle on/off** — enable or disable startup items without deleting them
+- **Add items** — search installed apps from the Start Menu, drag & drop `.exe`/`.lnk` files, or browse manually
+- **Remove items** — permanently delete startup entries
+- **Open file location** — quickly locate the source file in Explorer
+- **Search & filter** — find startup items or installed apps by name/path
+- **Always on top** — pin the window with the 📌 toggle
+- **Dark theme** — easy on the eyes
+- **Window position** — remembers size and position between sessions
+
+## Usage
+
+1. Launch the app — all current startup items are displayed
+2. Use the checkbox to enable/disable an item
+3. Click **🗑** to remove an item
+4. Click **📁** to open the file location
+5. Type in the **Filter startup items** box to search
+6. Search installed apps in the **Search installed apps** box and click **+** to add them
+7. Drag & drop a `.exe` or `.lnk` file onto the drop zone
+
+## Requirements
+
+- Windows 7 or later
+- .NET 8.0 Runtime
+
+## Build
+
+```bash
+dotnet publish -c Release
+```
