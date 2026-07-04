@@ -1,10 +1,10 @@
 <h1>
   <img src="logo.svg" width="48" style="vertical-align: middle;" alt="AutoStart Logo">
-  AutoStart Manager
+  &emsp;AutoStart Manager
 </h1>
 
 A lightweight Windows tool to manage startup applications — view, add, remove, and toggle startup items.
-
+<br><br>
 <p>
   <img src="screenshot.png" width="600" alt="Screenshot">
 </p>
