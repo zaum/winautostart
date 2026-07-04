@@ -127,6 +127,9 @@ public partial class MainWindow
         if (sender is FrameworkElement element && element.DataContext is Models.InstalledApp app)
         {
             ViewModel.AddInstalledApp(app);
+            ViewModel.AppSearchText = string.Empty;
+            AppSearchBox.Text = string.Empty;
+            AppSearchBox.Focus();
         }
     }
 }

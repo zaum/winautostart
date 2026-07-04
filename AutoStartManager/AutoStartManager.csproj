@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>AppIcon.ico</ApplicationIcon>
     <Description>Manage Windows startup applications — view, add, remove, and toggle startup items.</Description>
   </PropertyGroup>
 

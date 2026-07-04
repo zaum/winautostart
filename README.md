@@ -1,8 +1,14 @@
 # AutoStart Manager
 
+<p align="left">
+  <img src="logo.svg" width="48" alt="AutoStart Logo">
+</p>
+
 A lightweight Windows tool to manage startup applications — view, add, remove, and toggle startup items.
 
-![Screenshot](screenshot.png)
+<p align="center">
+  <img src="screenshot.png" width="600" alt="Screenshot">
+</p>
 
 ## Features
 
