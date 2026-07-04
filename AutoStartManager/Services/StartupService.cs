@@ -117,34 +117,38 @@ public class StartupService
     private List<StartupItem> GetHKLMItems()
     {
         var items = new List<StartupItem>();
+        ReadRegistryHive(items, Registry.LocalMachine, RegistryRunPath);
+        ReadRegistryHive(items, Registry.LocalMachine, @"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run");
+        return items;
+    }
+
+    private static void ReadRegistryHive(List<StartupItem> items, RegistryKey hive, string path)
+    {
         try
         {
-            using var key = Registry.LocalMachine.OpenSubKey(RegistryRunPath);
-            if (key != null)
-            {
-                foreach (var valueName in key.GetValueNames())
-                {
-                    var value = key.GetValue(valueName)?.ToString();
-                    if (string.IsNullOrEmpty(value)) continue;
+            using var key = hive.OpenSubKey(path);
+            if (key == null) return;
 
-                    var exePath = ExtractExecutablePath(value);
-                    items.Add(new StartupItem
-                    {
-                        Name = valueName,
-                        Path = exePath,
-                        TargetPath = ResolveTarget(exePath),
-                        Source = StartupSource.RegistryLocalMachine,
-                        IsEnabled = true,
-                        RequiresAdmin = true
-                    });
-                }
+            foreach (var valueName in key.GetValueNames())
+            {
+                var value = key.GetValue(valueName)?.ToString();
+                if (string.IsNullOrEmpty(value)) continue;
+
+                var exePath = ExtractExecutablePath(value);
+                items.Add(new StartupItem
+                {
+                    Name = valueName,
+                    Path = exePath,
+                    TargetPath = ResolveTarget(exePath),
+                    Source = StartupSource.RegistryLocalMachine,
+                    IsEnabled = true,
+                    RequiresAdmin = true
+                });
             }
         }
         catch
         {
         }
-
-        return items;
     }
 
     private List<StartupItem> GetScheduledTaskItems()
@@ -162,59 +166,73 @@ public class StartupService
             dynamic? folder = scheduler.GetFolder("\\");
             if (folder == null) return items;
 
+            EnumerateFolderTasks(folder, items);
+        }
+        catch
+        {
+        }
+
+        return items;
+    }
+
+    private void EnumerateFolderTasks(dynamic folder, List<StartupItem> items)
+    {
+        try
+        {
             dynamic? taskCollection = folder.GetTasks(1);
-            if (taskCollection == null) return items;
-
-            foreach (dynamic task in taskCollection)
+            if (taskCollection != null)
             {
-                try
+                foreach (dynamic task in taskCollection)
                 {
-                    dynamic? definition = task.Definition;
-                    if (definition == null) continue;
-
-                    dynamic? triggers = definition.Triggers;
-                    if (triggers == null) continue;
-
-                    bool hasStartupTrigger = false;
-                    foreach (dynamic trigger in triggers)
-                    {
-                        int triggerType = (int)trigger.Type;
-                        if (triggerType == 8 || triggerType == 9)
-                        {
-                            hasStartupTrigger = true;
-                            break;
-                        }
-                    }
-
-                    if (!hasStartupTrigger) continue;
-
-                    string taskPath = (string)task.Path;
-                    string taskName = (string)task.Name;
-                    bool isEnabled = (bool)task.Enabled;
-
-                    string targetPath = "";
                     try
                     {
-                        dynamic? actions = definition.Actions;
-                        if (actions != null && actions.Count > 0)
-                            targetPath = (string)actions[0].Path ?? "";
+                        dynamic? definition = task.Definition;
+                        if (definition == null) continue;
+
+                        dynamic? triggers = definition.Triggers;
+                        if (triggers == null) continue;
+
+                        bool hasStartupTrigger = false;
+                        foreach (dynamic trigger in triggers)
+                        {
+                            int triggerType = (int)trigger.Type;
+                            if (triggerType == 8 || triggerType == 9 || triggerType == 11)
+                            {
+                                hasStartupTrigger = true;
+                                break;
+                            }
+                        }
+
+                        if (!hasStartupTrigger) continue;
+
+                        string taskPath = (string)task.Path;
+                        string taskName = (string)task.Name;
+                        bool isEnabled = (bool)task.Enabled;
+
+                        string targetPath = "";
+                        try
+                        {
+                            dynamic? actions = definition.Actions;
+                            if (actions != null && actions.Count > 0)
+                                targetPath = (string)actions[0].Path ?? "";
+                        }
+                        catch
+                        {
+                        }
+
+                        items.Add(new StartupItem
+                        {
+                            Name = taskName,
+                            Path = taskPath,
+                            TargetPath = targetPath,
+                            Source = StartupSource.ScheduledTask,
+                            IsEnabled = isEnabled,
+                            RequiresAdmin = false
+                        });
                     }
                     catch
                     {
                     }
-
-                    items.Add(new StartupItem
-                    {
-                        Name = taskName,
-                        Path = taskPath,
-                        TargetPath = targetPath,
-                        Source = StartupSource.ScheduledTask,
-                        IsEnabled = isEnabled,
-                        RequiresAdmin = false
-                    });
-                }
-                catch
-                {
                 }
             }
         }
@@ -222,7 +240,23 @@ public class StartupService
         {
         }
 
-        return items;
+        try
+        {
+            dynamic? subFolders = folder.GetFolders(0);
+            if (subFolders != null)
+            {
+                foreach (dynamic subFolder in subFolders)
+                {
+                    string subPath = (string)subFolder.Path;
+                    if (subPath.StartsWith(@"\Microsoft\Windows\", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    EnumerateFolderTasks(subFolder, items);
+                }
+            }
+        }
+        catch
+        {
+        }
     }
 
     private static string GetStartupDisabledFolderPath()

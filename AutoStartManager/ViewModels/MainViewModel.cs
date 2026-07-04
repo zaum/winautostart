@@ -100,10 +100,12 @@ public class MainViewModel : ObservableObject
         LoadInstalledAppsAsync();
     }
 
-    public void LoadItems()
+    public async void LoadItems()
     {
+        var ordered = await Task.Run(() => _startupService.GetAll().OrderBy(i => i.Name).ToList());
+
         Items.Clear();
-        foreach (var item in _startupService.GetAll().OrderBy(i => i.Name))
+        foreach (var item in ordered)
             Items.Add(item);
 
         FilteredView = null;
