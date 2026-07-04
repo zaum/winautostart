@@ -18,7 +18,15 @@ public class StartupService
         items.AddRange(GetRegistryItems());
         items.AddRange(GetStartupFolderItems());
         items.AddRange(GetHKLMItems());
-        items.AddRange(GetScheduledTaskItems());
+        try
+        {
+            var task = Task.Run(() => GetScheduledTaskItems());
+            if (task.Wait(TimeSpan.FromSeconds(10)))
+                items.AddRange(task.Result);
+        }
+        catch
+        {
+        }
         MigrateOldDisabledEntries(items);
         return items;
     }

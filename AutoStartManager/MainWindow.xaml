@@ -1,7 +1,7 @@
 ﻿<Window x:Class="AutoStartManager.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+
         xmlns:models="clr-namespace:AutoStartManager.Models"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="AutoStart Manager - Manage Windows startup applications"
