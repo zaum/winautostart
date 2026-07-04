@@ -476,36 +476,42 @@
                                   Foreground="White">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="models:InstalledApp">
-                                <Border Padding="8,4"
+                                <Border Padding="4,4"
                                         Background="Transparent"
                                         CornerRadius="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Name}"
-                                                       FontSize="13"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="White"/>
-                                            <TextBlock Text="{Binding TargetPath}"
-                                                       FontSize="10"
-                                                       Foreground="#999999"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       MaxWidth="300"/>
-                                        </StackPanel>
-                                        <Button Grid.Column="1"
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <Button Grid.Row="0" Grid.Column="0"
                                                 Content="+"
                                                 ToolTip="Add to startup"
                                                 Click="AddInstalledApp_Click"
                                                 Style="{StaticResource FlatButton}"
-                                                FontSize="18"
+                                                FontSize="16"
                                                 FontWeight="Bold"
                                                 Foreground="#66CC66"
-                                                Height="28" Width="28"
-                                                VerticalAlignment="Center"
-                                                Margin="8,0,0,0"/>
+                                                Height="24" Width="24"
+                                                VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1"
+                                                   Text="{Binding Name}"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="White"
+                                                   VerticalAlignment="Center"
+                                                   Margin="4,0,0,0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0"
+                                                   Grid.ColumnSpan="2"
+                                                   Text="{Binding TargetPath}"
+                                                   FontSize="10"
+                                                   Foreground="#999999"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   MaxWidth="300"/>
                                     </Grid>
                                 </Border>
                             </DataTemplate>

@@ -3,7 +3,9 @@ namespace AutoStartManager.Models;
 public enum StartupSource
 {
     Registry,
-    StartupFolder
+    StartupFolder,
+    RegistryLocalMachine,
+    ScheduledTask
 }
 
 public class StartupItem : ObservableObject
@@ -13,6 +15,7 @@ public class StartupItem : ObservableObject
     private string _targetPath = string.Empty;
     private StartupSource _source;
     private bool _isEnabled = true;
+    private bool _requiresAdmin;
 
     public string Name
     {
@@ -44,7 +47,20 @@ public class StartupItem : ObservableObject
         set => SetProperty(ref _isEnabled, value);
     }
 
-    public string SourceDisplay => Source == StartupSource.Registry ? "Registry" : "Startup Folder";
+    public bool RequiresAdmin
+    {
+        get => _requiresAdmin;
+        set => SetProperty(ref _requiresAdmin, value);
+    }
+
+    public string SourceDisplay => Source switch
+    {
+        StartupSource.Registry => "Registry (HKCU)",
+        StartupSource.StartupFolder => "Startup Folder",
+        StartupSource.RegistryLocalMachine => "Registry (HKLM)",
+        StartupSource.ScheduledTask => "Scheduled Task",
+        _ => "Unknown"
+    };
 }
 
 public class ObservableObject : System.ComponentModel.INotifyPropertyChanged

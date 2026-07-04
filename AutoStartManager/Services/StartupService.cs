@@ -17,6 +17,8 @@ public class StartupService
         var items = new List<StartupItem>();
         items.AddRange(GetRegistryItems());
         items.AddRange(GetStartupFolderItems());
+        items.AddRange(GetHKLMItems());
+        items.AddRange(GetScheduledTaskItems());
         MigrateOldDisabledEntries(items);
         return items;
     }
@@ -31,13 +33,14 @@ public class StartupService
             {
                 var value = key.GetValue(valueName)?.ToString();
                 if (string.IsNullOrEmpty(value)) continue;
-                if (valueName.StartsWith("disabled_")) continue; // old format, migrated in MigrateOldDisabledEntries
+                if (valueName.StartsWith("disabled_")) continue;
 
+                var exePath = ExtractExecutablePath(value);
                 items.Add(new StartupItem
                 {
                     Name = valueName,
-                    Path = value,
-                    TargetPath = ResolveTarget(value),
+                    Path = exePath,
+                    TargetPath = ResolveTarget(exePath),
                     Source = StartupSource.Registry,
                     IsEnabled = true
                 });
@@ -52,11 +55,12 @@ public class StartupService
                 var value = disabledKey.GetValue(valueName)?.ToString();
                 if (string.IsNullOrEmpty(value)) continue;
 
+                var exePath = ExtractExecutablePath(value);
                 items.Add(new StartupItem
                 {
                     Name = valueName,
-                    Path = value,
-                    TargetPath = ResolveTarget(value),
+                    Path = exePath,
+                    TargetPath = ResolveTarget(exePath),
                     Source = StartupSource.Registry,
                     IsEnabled = false
                 });
@@ -75,7 +79,7 @@ public class StartupService
         foreach (var file in Directory.GetFiles(startupPath, "*.lnk"))
         {
             var fileName = Path.GetFileNameWithoutExtension(file);
-            if (fileName.StartsWith("disabled_")) continue; // old format, migrated
+            if (fileName.StartsWith("disabled_")) continue;
             var target = ResolveShortcut(file);
 
             items.Add(new StartupItem
@@ -110,6 +114,117 @@ public class StartupService
         return items;
     }
 
+    private List<StartupItem> GetHKLMItems()
+    {
+        var items = new List<StartupItem>();
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(RegistryRunPath);
+            if (key != null)
+            {
+                foreach (var valueName in key.GetValueNames())
+                {
+                    var value = key.GetValue(valueName)?.ToString();
+                    if (string.IsNullOrEmpty(value)) continue;
+
+                    var exePath = ExtractExecutablePath(value);
+                    items.Add(new StartupItem
+                    {
+                        Name = valueName,
+                        Path = exePath,
+                        TargetPath = ResolveTarget(exePath),
+                        Source = StartupSource.RegistryLocalMachine,
+                        IsEnabled = true,
+                        RequiresAdmin = true
+                    });
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return items;
+    }
+
+    private List<StartupItem> GetScheduledTaskItems()
+    {
+        var items = new List<StartupItem>();
+        try
+        {
+            Type? schedulerType = Type.GetTypeFromProgID("Schedule.Service");
+            if (schedulerType == null) return items;
+
+            dynamic? scheduler = Activator.CreateInstance(schedulerType);
+            if (scheduler == null) return items;
+
+            scheduler.Connect();
+            dynamic? folder = scheduler.GetFolder("\\");
+            if (folder == null) return items;
+
+            dynamic? taskCollection = folder.GetTasks(1);
+            if (taskCollection == null) return items;
+
+            foreach (dynamic task in taskCollection)
+            {
+                try
+                {
+                    dynamic? definition = task.Definition;
+                    if (definition == null) continue;
+
+                    dynamic? triggers = definition.Triggers;
+                    if (triggers == null) continue;
+
+                    bool hasStartupTrigger = false;
+                    foreach (dynamic trigger in triggers)
+                    {
+                        int triggerType = (int)trigger.Type;
+                        if (triggerType == 8 || triggerType == 9)
+                        {
+                            hasStartupTrigger = true;
+                            break;
+                        }
+                    }
+
+                    if (!hasStartupTrigger) continue;
+
+                    string taskPath = (string)task.Path;
+                    string taskName = (string)task.Name;
+                    bool isEnabled = (bool)task.Enabled;
+
+                    string targetPath = "";
+                    try
+                    {
+                        dynamic? actions = definition.Actions;
+                        if (actions != null && actions.Count > 0)
+                            targetPath = (string)actions[0].Path ?? "";
+                    }
+                    catch
+                    {
+                    }
+
+                    items.Add(new StartupItem
+                    {
+                        Name = taskName,
+                        Path = taskPath,
+                        TargetPath = targetPath,
+                        Source = StartupSource.ScheduledTask,
+                        IsEnabled = isEnabled,
+                        RequiresAdmin = false
+                    });
+                }
+                catch
+                {
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return items;
+    }
+
     private static string GetStartupDisabledFolderPath()
     {
         return Path.Combine(GetStartupFolderPath(), DisabledFolderName);
@@ -131,13 +246,14 @@ public class StartupService
                 disabledKey?.SetValue(cleanName, value);
                 key.DeleteValue(valueName, throwOnMissingValue: false);
 
+                var exePath = ExtractExecutablePath(value);
                 if (!currentItems.Any(i => i.Name == cleanName && i.Source == StartupSource.Registry))
                 {
                     currentItems.Add(new StartupItem
                     {
                         Name = cleanName,
-                        Path = value,
-                        TargetPath = ResolveTarget(value),
+                        Path = exePath,
+                        TargetPath = ResolveTarget(exePath),
                         Source = StartupSource.Registry,
                         IsEnabled = false
                     });
@@ -179,73 +295,167 @@ public class StartupService
 
     public void Delete(StartupItem item)
     {
-        if (item.Source == StartupSource.Registry)
+        switch (item.Source)
         {
-            using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true);
-            key?.DeleteValue(item.Name, throwOnMissingValue: false);
-            using var disabledKey = Registry.CurrentUser.OpenSubKey(DisabledRegistryPath, writable: true);
-            disabledKey?.DeleteValue(item.Name, throwOnMissingValue: false);
-        }
-        else
-        {
-            if (File.Exists(item.Path))
-                File.Delete(item.Path);
-            var disabledFolder = GetStartupDisabledFolderPath();
-            var disabledFilePath = Path.Combine(disabledFolder, Path.GetFileName(item.Path));
-            if (File.Exists(disabledFilePath))
-                File.Delete(disabledFilePath);
+            case StartupSource.Registry:
+            {
+                using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true);
+                key?.DeleteValue(item.Name, throwOnMissingValue: false);
+                using var disabledKey = Registry.CurrentUser.OpenSubKey(DisabledRegistryPath, writable: true);
+                disabledKey?.DeleteValue(item.Name, throwOnMissingValue: false);
+                break;
+            }
+            case StartupSource.StartupFolder:
+            {
+                if (File.Exists(item.Path))
+                    File.Delete(item.Path);
+                var disabledFolder = GetStartupDisabledFolderPath();
+                var disabledFilePath = Path.Combine(disabledFolder, Path.GetFileName(item.Path));
+                if (File.Exists(disabledFilePath))
+                    File.Delete(disabledFilePath);
+                break;
+            }
+            case StartupSource.RegistryLocalMachine:
+            {
+                AdminHelperService.DeleteRegistryValue(item.Name);
+                break;
+            }
+            case StartupSource.ScheduledTask:
+            {
+                if (!TryDeleteTaskCom(item.Path))
+                    AdminHelperService.DeleteTask(item.Path);
+                break;
+            }
         }
     }
 
     public void SetEnabled(StartupItem item, bool enabled)
     {
-        if (item.Source == StartupSource.Registry)
+        switch (item.Source)
         {
-            if (enabled)
-            {
-                using var disabledKey = Registry.CurrentUser.OpenSubKey(DisabledRegistryPath, writable: true);
-                disabledKey?.DeleteValue(item.Name, throwOnMissingValue: false);
+            case StartupSource.Registry:
+                SetRegistryEnabled(item, enabled);
+                break;
+            case StartupSource.StartupFolder:
+                SetStartupFolderEnabled(item, enabled);
+                break;
+            case StartupSource.RegistryLocalMachine:
+                if (enabled)
+                    AdminHelperService.SetRegistryValue(item.Name, item.Path);
+                else
+                    AdminHelperService.DeleteRegistryValue(item.Name);
+                break;
+            case StartupSource.ScheduledTask:
+                if (!TrySetTaskEnabledCom(item.Path, enabled))
+                    AdminHelperService.SetTaskEnabled(item.Path, enabled);
+                break;
+        }
+        item.IsEnabled = enabled;
+    }
 
-                using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true);
-                key?.SetValue(item.Name, item.Path);
-            }
-            else
-            {
-                using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true);
-                key?.DeleteValue(item.Name, throwOnMissingValue: false);
+    private void SetRegistryEnabled(StartupItem item, bool enabled)
+    {
+        if (enabled)
+        {
+            using var disabledKey = Registry.CurrentUser.OpenSubKey(DisabledRegistryPath, writable: true);
+            disabledKey?.DeleteValue(item.Name, throwOnMissingValue: false);
 
-                using var disabledKey = Registry.CurrentUser.CreateSubKey(DisabledRegistryPath);
-                disabledKey?.SetValue(item.Name, item.Path);
-            }
+            using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true);
+            key?.SetValue(item.Name, QuotePath(item.Path));
         }
         else
         {
-            var startupPath = GetStartupFolderPath();
-            var disabledFolder = GetStartupDisabledFolderPath();
-            var fileName = Path.GetFileName(item.Path);
-            var startupFilePath = Path.Combine(startupPath, fileName);
-            var disabledFilePath = Path.Combine(disabledFolder, fileName);
+            using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true);
+            key?.DeleteValue(item.Name, throwOnMissingValue: false);
 
-            if (enabled)
-            {
-                if (File.Exists(disabledFilePath))
-                {
-                    Directory.CreateDirectory(startupPath);
-                    File.Move(disabledFilePath, startupFilePath, overwrite: true);
-                }
-                item.Path = startupFilePath;
-            }
-            else
-            {
-                if (File.Exists(startupFilePath))
-                {
-                    Directory.CreateDirectory(disabledFolder);
-                    File.Move(startupFilePath, disabledFilePath, overwrite: true);
-                }
-                item.Path = disabledFilePath;
-            }
+            using var disabledKey = Registry.CurrentUser.CreateSubKey(DisabledRegistryPath);
+            disabledKey?.SetValue(item.Name, QuotePath(item.Path));
         }
-        item.IsEnabled = enabled;
+    }
+
+    private void SetStartupFolderEnabled(StartupItem item, bool enabled)
+    {
+        var startupPath = GetStartupFolderPath();
+        var disabledFolder = GetStartupDisabledFolderPath();
+        var fileName = Path.GetFileName(item.Path);
+        var startupFilePath = Path.Combine(startupPath, fileName);
+        var disabledFilePath = Path.Combine(disabledFolder, fileName);
+
+        if (enabled)
+        {
+            if (File.Exists(disabledFilePath))
+            {
+                Directory.CreateDirectory(startupPath);
+                File.Move(disabledFilePath, startupFilePath, overwrite: true);
+            }
+            item.Path = startupFilePath;
+        }
+        else
+        {
+            if (File.Exists(startupFilePath))
+            {
+                Directory.CreateDirectory(disabledFolder);
+                File.Move(startupFilePath, disabledFilePath, overwrite: true);
+            }
+            item.Path = disabledFilePath;
+        }
+    }
+
+    private static bool TrySetTaskEnabledCom(string taskPath, bool enabled)
+    {
+        try
+        {
+            Type? schedulerType = Type.GetTypeFromProgID("Schedule.Service");
+            if (schedulerType == null) return false;
+
+            dynamic? scheduler = Activator.CreateInstance(schedulerType);
+            if (scheduler == null) return false;
+
+            scheduler.Connect();
+            dynamic? folder = scheduler.GetFolder("\\");
+            if (folder == null) return false;
+
+            dynamic? task = folder.GetTask(taskPath);
+            if (task == null) return false;
+
+            task.Enabled = enabled;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryDeleteTaskCom(string taskPath)
+    {
+        try
+        {
+            Type? schedulerType = Type.GetTypeFromProgID("Schedule.Service");
+            if (schedulerType == null) return false;
+
+            dynamic? scheduler = Activator.CreateInstance(schedulerType);
+            if (scheduler == null) return false;
+
+            scheduler.Connect();
+            dynamic? folder = scheduler.GetFolder("\\");
+            if (folder == null) return false;
+
+            folder.DeleteTask(taskPath, 0);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string QuotePath(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return path;
+        if (path.Contains(' ') && !path.StartsWith("\""))
+            return "\"" + path + "\"";
+        return path;
     }
 
     public void Add(string filePath)
@@ -262,12 +472,28 @@ public class StartupService
             ?? throw new InvalidOperationException("Cannot open registry key.");
         if (key.GetValue(name) != null)
             throw new InvalidOperationException($"\"{name}\" is already in the startup list.");
-        key.SetValue(name, target);
+        key.SetValue(name, QuotePath(target));
     }
 
     public static string GetStartupFolderPath()
     {
         return Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+    }
+
+    private static string ExtractExecutablePath(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return value;
+
+        value = value.Trim();
+
+        if (value.StartsWith("\""))
+        {
+            var endQuote = value.IndexOf('"', 1);
+            if (endQuote > 0)
+                return value.Substring(1, endQuote - 1);
+        }
+
+        return value;
     }
 
     private static string ResolveTarget(string path)
