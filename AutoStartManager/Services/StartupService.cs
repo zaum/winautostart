@@ -9,12 +9,15 @@ namespace AutoStartManager.Services;
 public class StartupService
 {
     private const string RegistryRunPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    private const string DisabledRegistryPath = @"Software\AutoStartManager\DisabledItems";
+    private const string DisabledFolderName = "AutoStartManager_Disabled";
 
     public List<StartupItem> GetAll()
     {
         var items = new List<StartupItem>();
         items.AddRange(GetRegistryItems());
         items.AddRange(GetStartupFolderItems());
+        MigrateOldDisabledEntries(items);
         return items;
     }
 
@@ -22,24 +25,44 @@ public class StartupService
     {
         var items = new List<StartupItem>();
         using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath);
-        if (key == null) return items;
-
-        foreach (var valueName in key.GetValueNames())
+        if (key != null)
         {
-            var value = key.GetValue(valueName)?.ToString();
-            if (string.IsNullOrEmpty(value)) continue;
-
-            var isEnabled = !valueName.StartsWith("disabled_");
-
-            items.Add(new StartupItem
+            foreach (var valueName in key.GetValueNames())
             {
-                Name = isEnabled ? valueName : valueName.Substring(9),
-                Path = value,
-                TargetPath = ResolveTarget(value),
-                Source = StartupSource.Registry,
-                IsEnabled = isEnabled
-            });
+                var value = key.GetValue(valueName)?.ToString();
+                if (string.IsNullOrEmpty(value)) continue;
+                if (valueName.StartsWith("disabled_")) continue; // old format, migrated in MigrateOldDisabledEntries
+
+                items.Add(new StartupItem
+                {
+                    Name = valueName,
+                    Path = value,
+                    TargetPath = ResolveTarget(value),
+                    Source = StartupSource.Registry,
+                    IsEnabled = true
+                });
+            }
         }
+
+        using var disabledKey = Registry.CurrentUser.OpenSubKey(DisabledRegistryPath);
+        if (disabledKey != null)
+        {
+            foreach (var valueName in disabledKey.GetValueNames())
+            {
+                var value = disabledKey.GetValue(valueName)?.ToString();
+                if (string.IsNullOrEmpty(value)) continue;
+
+                items.Add(new StartupItem
+                {
+                    Name = valueName,
+                    Path = value,
+                    TargetPath = ResolveTarget(value),
+                    Source = StartupSource.Registry,
+                    IsEnabled = false
+                });
+            }
+        }
+
         return items;
     }
 
@@ -52,19 +75,106 @@ public class StartupService
         foreach (var file in Directory.GetFiles(startupPath, "*.lnk"))
         {
             var fileName = Path.GetFileNameWithoutExtension(file);
-            var isEnabled = !fileName.StartsWith("disabled_");
+            if (fileName.StartsWith("disabled_")) continue; // old format, migrated
             var target = ResolveShortcut(file);
 
             items.Add(new StartupItem
             {
-                Name = isEnabled ? fileName : fileName.Substring(9),
+                Name = fileName,
                 Path = file,
                 TargetPath = target,
                 Source = StartupSource.StartupFolder,
-                IsEnabled = isEnabled
+                IsEnabled = true
             });
         }
+
+        var disabledPath = GetStartupDisabledFolderPath();
+        if (Directory.Exists(disabledPath))
+        {
+            foreach (var file in Directory.GetFiles(disabledPath, "*.lnk"))
+            {
+                var fileName = Path.GetFileNameWithoutExtension(file);
+                var target = ResolveShortcut(file);
+
+                items.Add(new StartupItem
+                {
+                    Name = fileName,
+                    Path = file,
+                    TargetPath = target,
+                    Source = StartupSource.StartupFolder,
+                    IsEnabled = false
+                });
+            }
+        }
+
         return items;
+    }
+
+    private static string GetStartupDisabledFolderPath()
+    {
+        return Path.Combine(GetStartupFolderPath(), DisabledFolderName);
+    }
+
+    private void MigrateOldDisabledEntries(List<StartupItem> currentItems)
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true);
+        if (key != null)
+        {
+            foreach (var valueName in key.GetValueNames())
+            {
+                if (!valueName.StartsWith("disabled_")) continue;
+                var cleanName = valueName.Substring(9);
+                var value = key.GetValue(valueName)?.ToString();
+                if (string.IsNullOrEmpty(value)) continue;
+
+                using var disabledKey = Registry.CurrentUser.CreateSubKey(DisabledRegistryPath);
+                disabledKey?.SetValue(cleanName, value);
+                key.DeleteValue(valueName, throwOnMissingValue: false);
+
+                if (!currentItems.Any(i => i.Name == cleanName && i.Source == StartupSource.Registry))
+                {
+                    currentItems.Add(new StartupItem
+                    {
+                        Name = cleanName,
+                        Path = value,
+                        TargetPath = ResolveTarget(value),
+                        Source = StartupSource.Registry,
+                        IsEnabled = false
+                    });
+                }
+            }
+        }
+
+        var startupPath = GetStartupFolderPath();
+        var disabledFolder = GetStartupDisabledFolderPath();
+        if (!Directory.Exists(startupPath)) return;
+
+        foreach (var file in Directory.GetFiles(startupPath, "disabled_*.lnk"))
+        {
+            var fileName = Path.GetFileNameWithoutExtension(file);
+            if (!fileName.StartsWith("disabled_")) continue;
+            var cleanName = fileName.Substring(9);
+            var ext = Path.GetExtension(file);
+            var cleanPath = Path.Combine(startupPath, cleanName + ext);
+
+            Directory.CreateDirectory(disabledFolder);
+            var destPath = Path.Combine(disabledFolder, cleanName + ext);
+            if (File.Exists(destPath)) File.Delete(destPath);
+            File.Move(file, destPath);
+
+            var target = ResolveShortcut(destPath);
+            if (!currentItems.Any(i => i.Name == cleanName && i.Source == StartupSource.StartupFolder))
+            {
+                currentItems.Add(new StartupItem
+                {
+                    Name = cleanName,
+                    Path = destPath,
+                    TargetPath = target,
+                    Source = StartupSource.StartupFolder,
+                    IsEnabled = false
+                });
+            }
+        }
     }
 
     public void Delete(StartupItem item)
@@ -73,14 +183,17 @@ public class StartupService
         {
             using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true);
             key?.DeleteValue(item.Name, throwOnMissingValue: false);
+            using var disabledKey = Registry.CurrentUser.OpenSubKey(DisabledRegistryPath, writable: true);
+            disabledKey?.DeleteValue(item.Name, throwOnMissingValue: false);
         }
         else
         {
             if (File.Exists(item.Path))
                 File.Delete(item.Path);
-            var disabledPath = GetDisabledPath(item.Path);
-            if (File.Exists(disabledPath))
-                File.Delete(disabledPath);
+            var disabledFolder = GetStartupDisabledFolderPath();
+            var disabledFilePath = Path.Combine(disabledFolder, Path.GetFileName(item.Path));
+            if (File.Exists(disabledFilePath))
+                File.Delete(disabledFilePath);
         }
     }
 
@@ -88,65 +201,48 @@ public class StartupService
     {
         if (item.Source == StartupSource.Registry)
         {
-            using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true);
-            if (key == null) return;
-
             if (enabled)
             {
-                var disabledName = item.Name.StartsWith("disabled_")
-                    ? item.Name
-                    : "disabled_" + item.Name;
-                var cleanName = item.Name.StartsWith("disabled_")
-                    ? item.Name.Substring(9)
-                    : item.Name;
+                using var disabledKey = Registry.CurrentUser.OpenSubKey(DisabledRegistryPath, writable: true);
+                disabledKey?.DeleteValue(item.Name, throwOnMissingValue: false);
 
-                key.DeleteValue(disabledName, throwOnMissingValue: false);
-                key.SetValue(cleanName, item.Path);
-                item.Name = cleanName;
+                using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true);
+                key?.SetValue(item.Name, item.Path);
             }
             else
             {
-                var disabledName = item.Name.StartsWith("disabled_")
-                    ? item.Name
-                    : "disabled_" + item.Name;
-                var cleanName = item.Name.StartsWith("disabled_")
-                    ? item.Name.Substring(9)
-                    : item.Name;
+                using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true);
+                key?.DeleteValue(item.Name, throwOnMissingValue: false);
 
-                key.DeleteValue(cleanName, throwOnMissingValue: false);
-                key.SetValue(disabledName, item.Path);
-                item.Name = disabledName;
+                using var disabledKey = Registry.CurrentUser.CreateSubKey(DisabledRegistryPath);
+                disabledKey?.SetValue(item.Name, item.Path);
             }
         }
         else
         {
-            var dir = Path.GetDirectoryName(item.Path)!;
-            var fileName = Path.GetFileNameWithoutExtension(item.Path);
-            var ext = Path.GetExtension(item.Path);
-
-            var cleanFileName = fileName.StartsWith("disabled_")
-                ? fileName.Substring(9)
-                : fileName;
-            var disabledFileName = fileName.StartsWith("disabled_")
-                ? fileName
-                : "disabled_" + fileName;
-
-            var cleanPath = Path.Combine(dir, cleanFileName + ext);
-            var disabledPath = Path.Combine(dir, disabledFileName + ext);
+            var startupPath = GetStartupFolderPath();
+            var disabledFolder = GetStartupDisabledFolderPath();
+            var fileName = Path.GetFileName(item.Path);
+            var startupFilePath = Path.Combine(startupPath, fileName);
+            var disabledFilePath = Path.Combine(disabledFolder, fileName);
 
             if (enabled)
             {
-                if (File.Exists(disabledPath))
-                    File.Move(disabledPath, cleanPath);
-                item.Path = cleanPath;
-                item.Name = cleanFileName;
+                if (File.Exists(disabledFilePath))
+                {
+                    Directory.CreateDirectory(startupPath);
+                    File.Move(disabledFilePath, startupFilePath, overwrite: true);
+                }
+                item.Path = startupFilePath;
             }
             else
             {
-                if (File.Exists(cleanPath))
-                    File.Move(cleanPath, disabledPath);
-                item.Path = disabledPath;
-                item.Name = disabledFileName;
+                if (File.Exists(startupFilePath))
+                {
+                    Directory.CreateDirectory(disabledFolder);
+                    File.Move(startupFilePath, disabledFilePath, overwrite: true);
+                }
+                item.Path = disabledFilePath;
             }
         }
         item.IsEnabled = enabled;
@@ -172,15 +268,6 @@ public class StartupService
     public static string GetStartupFolderPath()
     {
         return Environment.GetFolderPath(Environment.SpecialFolder.Startup);
-    }
-
-    private static string GetDisabledPath(string path)
-    {
-        var dir = Path.GetDirectoryName(path)!;
-        var file = Path.GetFileName(path);
-        if (file.StartsWith("disabled_"))
-            return path;
-        return Path.Combine(dir, "disabled_" + file);
     }
 
     private static string ResolveTarget(string path)

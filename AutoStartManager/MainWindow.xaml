@@ -182,12 +182,6 @@
                 </Setter>
             </Style>
 
-            <Style TargetType="TextBlock">
-                <Setter Property="TextElement.CharacterSpacing" Value="80"/>
-            </Style>
-            <Style TargetType="TextBox">
-                <Setter Property="TextElement.CharacterSpacing" Value="80"/>
-            </Style>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -487,21 +481,10 @@
                                         CornerRadius="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <Button Grid.Column="0"
-                                                Content="+"
-                                                ToolTip="Add to startup"
-                                                Click="AddInstalledApp_Click"
-                                                Style="{StaticResource FlatButton}"
-                                                FontSize="18"
-                                                FontWeight="Bold"
-                                                Foreground="#66CC66"
-                                                Height="28" Width="28"
-                                                VerticalAlignment="Center"
-                                                Margin="0,0,4,0"/>
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Name}"
                                                        FontSize="13"
                                                        FontWeight="SemiBold"
@@ -512,6 +495,17 @@
                                                        TextTrimming="CharacterEllipsis"
                                                        MaxWidth="300"/>
                                         </StackPanel>
+                                        <Button Grid.Column="1"
+                                                Content="+"
+                                                ToolTip="Add to startup"
+                                                Click="AddInstalledApp_Click"
+                                                Style="{StaticResource FlatButton}"
+                                                FontSize="18"
+                                                FontWeight="Bold"
+                                                Foreground="#66CC66"
+                                                Height="28" Width="28"
+                                                VerticalAlignment="Center"
+                                                Margin="8,0,0,0"/>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
