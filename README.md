@@ -5,7 +5,7 @@
 
 A lightweight Windows tool to manage startup applications — view, add, remove, and toggle startup items.
 
-<p align="center">
+<p>
   <img src="screenshot.png" width="600" alt="Screenshot">
 </p>
 
