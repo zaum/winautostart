@@ -10,11 +10,6 @@ A lightweight Windows tool to manage startup applications — view, add, remove,
 - **Toggle on/off** — enable or disable startup items without deleting them
 - **Add items** — search installed apps from the Start Menu, drag & drop `.exe`/`.lnk` files, or browse manually
 - **Remove items** — permanently delete startup entries
-- **Open file location** — quickly locate the source file in Explorer
-- **Search & filter** — find startup items or installed apps by name/path
-- **Always on top** — pin the window with the 📌 toggle
-- **Dark theme** — easy on the eyes
-- **Window position** — remembers size and position between sessions
 
 ## Usage
 
