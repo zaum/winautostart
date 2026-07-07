@@ -21,6 +21,8 @@ public class MainViewModel : ObservableObject
     private ICollectionView? _filteredView;
     private ICollectionView? _installedAppsView;
     private readonly DispatcherTimer _searchTimer;
+    private readonly List<StartupItem> _savedEnabledItems = new();
+    private bool _isAllDisabled;
 
     public event Action<string>? ToastRequested;
 
@@ -68,6 +70,21 @@ public class MainViewModel : ObservableObject
 
     public bool HasSearchText => !string.IsNullOrEmpty(_searchText);
     public bool HasAppSearchText => !string.IsNullOrEmpty(_appSearchText);
+
+    public bool IsAllDisabled
+    {
+        get => _isAllDisabled;
+        set
+        {
+            if (SetProperty(ref _isAllDisabled, value))
+            {
+                ToggleAllEnabled();
+                OnPropertyChanged(nameof(DisableAllLabel));
+            }
+        }
+    }
+
+    public string DisableAllLabel => _isAllDisabled ? "All disabled" : "All enabled";
 
     public ICommand DeleteCommand { get; }
     public ICommand OpenInExplorerCommand { get; }
@@ -242,6 +259,42 @@ public class MainViewModel : ObservableObject
     private void ClearAppSearch()
     {
         AppSearchText = string.Empty;
+    }
+
+    private async void ToggleAllEnabled()
+    {
+        if (_isAllDisabled)
+        {
+            _savedEnabledItems.Clear();
+            _savedEnabledItems.AddRange(Items.Where(i => i.IsEnabled));
+
+            var toDisable = _savedEnabledItems.ToList();
+            await Task.Run(() =>
+            {
+                foreach (var item in toDisable)
+                {
+                    try { _startupService.SetEnabled(item, false); }
+                    catch { }
+                }
+            });
+            foreach (var item in toDisable)
+                item.IsEnabled = false;
+        }
+        else
+        {
+            var toRestore = _savedEnabledItems.ToList();
+            await Task.Run(() =>
+            {
+                foreach (var item in toRestore)
+                {
+                    try { _startupService.SetEnabled(item, true); }
+                    catch { }
+                }
+            });
+            foreach (var item in toRestore)
+                item.IsEnabled = true;
+            _savedEnabledItems.Clear();
+        }
     }
 
     private void Refresh()
