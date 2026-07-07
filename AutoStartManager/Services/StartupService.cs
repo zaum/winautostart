@@ -84,15 +84,20 @@ public class StartupService
         var startupPath = GetStartupFolderPath();
         if (!Directory.Exists(startupPath)) return items;
 
-        foreach (var file in Directory.GetFiles(startupPath, "*.lnk"))
+        foreach (var file in Directory.GetFiles(startupPath))
         {
-            var fileName = Path.GetFileNameWithoutExtension(file);
-            if (fileName.StartsWith("disabled_")) continue;
-            var target = ResolveShortcut(file);
+            var fileName = Path.GetFileName(file);
+            if (fileName.Equals("desktop.ini", StringComparison.OrdinalIgnoreCase)) continue;
+
+            var fileNameNoExt = Path.GetFileNameWithoutExtension(file);
+            if (fileNameNoExt.StartsWith("disabled_")) continue;
+
+            var isLnk = file.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase);
+            var target = isLnk ? ResolveShortcut(file) : file;
 
             items.Add(new StartupItem
             {
-                Name = fileName,
+                Name = fileNameNoExt,
                 Path = file,
                 TargetPath = target,
                 Source = StartupSource.StartupFolder,
@@ -103,14 +108,18 @@ public class StartupService
         var disabledPath = GetStartupDisabledFolderPath();
         if (Directory.Exists(disabledPath))
         {
-            foreach (var file in Directory.GetFiles(disabledPath, "*.lnk"))
+            foreach (var file in Directory.GetFiles(disabledPath))
             {
-                var fileName = Path.GetFileNameWithoutExtension(file);
-                var target = ResolveShortcut(file);
+                var fileName = Path.GetFileName(file);
+                if (fileName.Equals("desktop.ini", StringComparison.OrdinalIgnoreCase)) continue;
+
+                var fileNameNoExt = Path.GetFileNameWithoutExtension(file);
+                var isLnk = file.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase);
+                var target = isLnk ? ResolveShortcut(file) : file;
 
                 items.Add(new StartupItem
                 {
-                    Name = fileName,
+                    Name = fileNameNoExt,
                     Path = file,
                     TargetPath = target,
                     Source = StartupSource.StartupFolder,
@@ -307,7 +316,7 @@ public class StartupService
         var disabledFolder = GetStartupDisabledFolderPath();
         if (!Directory.Exists(startupPath)) return;
 
-        foreach (var file in Directory.GetFiles(startupPath, "disabled_*.lnk"))
+        foreach (var file in Directory.GetFiles(startupPath, "disabled_*"))
         {
             var fileName = Path.GetFileNameWithoutExtension(file);
             if (!fileName.StartsWith("disabled_")) continue;
@@ -320,7 +329,8 @@ public class StartupService
             if (File.Exists(destPath)) File.Delete(destPath);
             File.Move(file, destPath);
 
-            var target = ResolveShortcut(destPath);
+            var isLnk = destPath.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase);
+            var target = isLnk ? ResolveShortcut(destPath) : destPath;
             if (!currentItems.Any(i => i.Name == cleanName && i.Source == StartupSource.StartupFolder))
             {
                 currentItems.Add(new StartupItem
@@ -359,13 +369,17 @@ public class StartupService
             }
             case StartupSource.RegistryLocalMachine:
             {
-                AdminHelperService.DeleteRegistryValue(item.Name);
+                if (!AdminHelperService.DeleteRegistryValue(item.Name))
+                    throw new UnauthorizedAccessException("Registry deletion failed or was cancelled by the user.");
                 break;
             }
             case StartupSource.ScheduledTask:
             {
                 if (!TryDeleteTaskCom(item.Path))
-                    AdminHelperService.DeleteTask(item.Path);
+                {
+                    if (!AdminHelperService.DeleteTask(item.Path))
+                        throw new UnauthorizedAccessException("Scheduled task deletion failed or was cancelled by the user.");
+                }
                 break;
             }
         }
@@ -382,14 +396,18 @@ public class StartupService
                 SetStartupFolderEnabled(item, enabled);
                 break;
             case StartupSource.RegistryLocalMachine:
-                if (enabled)
-                    AdminHelperService.SetRegistryValue(item.Name, item.Path);
-                else
-                    AdminHelperService.DeleteRegistryValue(item.Name);
+                bool registrySuccess = enabled
+                    ? AdminHelperService.SetRegistryValue(item.Name, item.Path)
+                    : AdminHelperService.DeleteRegistryValue(item.Name);
+                if (!registrySuccess)
+                    throw new UnauthorizedAccessException("Registry modification failed or was cancelled by the user.");
                 break;
             case StartupSource.ScheduledTask:
                 if (!TrySetTaskEnabledCom(item.Path, enabled))
-                    AdminHelperService.SetTaskEnabled(item.Path, enabled);
+                {
+                    if (!AdminHelperService.SetTaskEnabled(item.Path, enabled))
+                        throw new UnauthorizedAccessException("Scheduled task modification failed or was cancelled by the user.");
+                }
                 break;
         }
         item.IsEnabled = enabled;
@@ -397,49 +415,63 @@ public class StartupService
 
     private void SetRegistryEnabled(StartupItem item, bool enabled)
     {
-        if (enabled)
+        try
         {
-            using var disabledKey = Registry.CurrentUser.OpenSubKey(DisabledRegistryPath, writable: true);
-            disabledKey?.DeleteValue(item.Name, throwOnMissingValue: false);
+            if (enabled)
+            {
+                using var disabledKey = Registry.CurrentUser.OpenSubKey(DisabledRegistryPath, writable: true);
+                disabledKey?.DeleteValue(item.Name, throwOnMissingValue: false);
 
-            using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true);
-            key?.SetValue(item.Name, QuotePath(item.Path));
+                using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true);
+                key?.SetValue(item.Name, QuotePath(item.Path));
+            }
+            else
+            {
+                using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true);
+                key?.DeleteValue(item.Name, throwOnMissingValue: false);
+
+                using var disabledKey = Registry.CurrentUser.CreateSubKey(DisabledRegistryPath);
+                disabledKey?.SetValue(item.Name, QuotePath(item.Path));
+            }
         }
-        else
+        catch (Exception ex)
         {
-            using var key = Registry.CurrentUser.OpenSubKey(RegistryRunPath, writable: true);
-            key?.DeleteValue(item.Name, throwOnMissingValue: false);
-
-            using var disabledKey = Registry.CurrentUser.CreateSubKey(DisabledRegistryPath);
-            disabledKey?.SetValue(item.Name, QuotePath(item.Path));
+            throw new InvalidOperationException($"Registry error: {ex.Message}", ex);
         }
     }
 
     private void SetStartupFolderEnabled(StartupItem item, bool enabled)
     {
-        var startupPath = GetStartupFolderPath();
-        var disabledFolder = GetStartupDisabledFolderPath();
-        var fileName = Path.GetFileName(item.Path);
-        var startupFilePath = Path.Combine(startupPath, fileName);
-        var disabledFilePath = Path.Combine(disabledFolder, fileName);
+        try
+        {
+            var startupPath = GetStartupFolderPath();
+            var disabledFolder = GetStartupDisabledFolderPath();
+            var fileName = Path.GetFileName(item.Path);
+            var startupFilePath = Path.Combine(startupPath, fileName);
+            var disabledFilePath = Path.Combine(disabledFolder, fileName);
 
-        if (enabled)
-        {
-            if (File.Exists(disabledFilePath))
+            if (enabled)
             {
-                Directory.CreateDirectory(startupPath);
-                File.Move(disabledFilePath, startupFilePath, overwrite: true);
+                if (File.Exists(disabledFilePath))
+                {
+                    Directory.CreateDirectory(startupPath);
+                    File.Move(disabledFilePath, startupFilePath, overwrite: true);
+                }
+                item.Path = startupFilePath;
             }
-            item.Path = startupFilePath;
+            else
+            {
+                if (File.Exists(startupFilePath))
+                {
+                    Directory.CreateDirectory(disabledFolder);
+                    File.Move(startupFilePath, disabledFilePath, overwrite: true);
+                }
+                item.Path = disabledFilePath;
+            }
         }
-        else
+        catch (Exception ex)
         {
-            if (File.Exists(startupFilePath))
-            {
-                Directory.CreateDirectory(disabledFolder);
-                File.Move(startupFilePath, disabledFilePath, overwrite: true);
-            }
-            item.Path = disabledFilePath;
+            throw new InvalidOperationException($"File system error: {ex.Message}", ex);
         }
     }
 
@@ -533,6 +565,20 @@ public class StartupService
             var endQuote = value.IndexOf('"', 1);
             if (endQuote > 0)
                 return value.Substring(1, endQuote - 1);
+        }
+        else
+        {
+            // If the path is not quoted, it might still have command-line arguments.
+            // We search for common executable extensions followed by a space to split the arguments.
+            var extensions = new[] { ".exe", ".bat", ".cmd", ".lnk" };
+            foreach (var ext in extensions)
+            {
+                var idx = value.IndexOf(ext + " ", StringComparison.OrdinalIgnoreCase);
+                if (idx > 0)
+                {
+                    return value.Substring(0, idx + ext.Length);
+                }
+            }
         }
 
         return value;

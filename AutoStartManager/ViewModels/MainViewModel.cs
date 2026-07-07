@@ -119,16 +119,23 @@ public class MainViewModel : ObservableObject
 
     public async void LoadItems()
     {
-        var ordered = await Task.Run(() => _startupService.GetAll().OrderBy(i => i.Name).ToList());
+        try
+        {
+            var ordered = await Task.Run(() => _startupService.GetAll().OrderBy(i => i.Name).ToList());
 
-        Items.Clear();
-        foreach (var item in ordered)
-            Items.Add(item);
+            Items.Clear();
+            foreach (var item in ordered)
+                Items.Add(item);
 
-        FilteredView = null;
-        FilteredView = CollectionViewSource.GetDefaultView(Items);
-        FilteredView.Filter = FilterPredicate;
-        FilteredView.Refresh();
+            FilteredView = null;
+            FilteredView = CollectionViewSource.GetDefaultView(Items);
+            FilteredView.Filter = FilterPredicate;
+            FilteredView.Refresh();
+        }
+        catch (Exception ex)
+        {
+            ToastRequested?.Invoke($"Failed to load startup items: {ex.Message}");
+        }
     }
 
     private async void LoadInstalledAppsAsync()
@@ -185,9 +192,16 @@ public class MainViewModel : ObservableObject
     private void DeleteItem(StartupItem? item)
     {
         if (item == null) return;
-        _startupService.Delete(item);
-        Items.Remove(item);
-        ToastRequested?.Invoke($"\"{item.Name}\" removed from startup.");
+        try
+        {
+            _startupService.Delete(item);
+            Items.Remove(item);
+            ToastRequested?.Invoke($"\"{item.Name}\" removed from startup.");
+        }
+        catch (Exception ex)
+        {
+            ToastRequested?.Invoke($"Failed to remove \"{item.Name}\": {ex.Message}");
+        }
     }
 
     private void OpenItemInExplorer(StartupItem? item)
@@ -201,7 +215,15 @@ public class MainViewModel : ObservableObject
     private void ToggleItem(StartupItem? item)
     {
         if (item == null) return;
-        _startupService.SetEnabled(item, !item.IsEnabled);
+        try
+        {
+            _startupService.SetEnabled(item, !item.IsEnabled);
+        }
+        catch (Exception ex)
+        {
+            ToastRequested?.Invoke($"Failed to change state: {ex.Message}");
+            LoadItems();
+        }
     }
 
     private void BrowseAndAdd()

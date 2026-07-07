@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
 using AutoStartManager.Services;
@@ -45,10 +45,25 @@ public partial class MainWindow
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         var pos = WindowStateService.Load();
-        if (!double.IsNaN(pos.Left)) Left = pos.Left;
-        if (!double.IsNaN(pos.Top)) Top = pos.Top;
-        if (pos.Width > 0) Width = pos.Width;
-        if (pos.Height > 0) Height = pos.Height;
+
+        // Check if the loaded window position is within the bounds of the virtual screen area
+        if (!double.IsNaN(pos.Left) && !double.IsNaN(pos.Top))
+        {
+            double virtualLeft = SystemParameters.VirtualScreenLeft;
+            double virtualTop = SystemParameters.VirtualScreenTop;
+            double virtualWidth = SystemParameters.VirtualScreenWidth;
+            double virtualHeight = SystemParameters.VirtualScreenHeight;
+
+            if (pos.Left >= virtualLeft && pos.Left + pos.Width <= virtualLeft + virtualWidth &&
+                pos.Top >= virtualTop && pos.Top + pos.Height <= virtualTop + virtualHeight)
+            {
+                Left = pos.Left;
+                Top = pos.Top;
+            }
+        }
+
+        if (pos.Width > 0 && pos.Width >= MinWidth) Width = pos.Width;
+        if (pos.Height > 0 && pos.Height >= MinHeight) Height = pos.Height;
         if (pos.IsMaximized) WindowState = System.Windows.WindowState.Maximized;
         Topmost = PinToggle.IsChecked == true;
         AppSearchBox.Focus();
