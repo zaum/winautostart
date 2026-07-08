@@ -29,10 +29,27 @@ A lightweight Windows tool to manage startup applications — view, add, remove,
 ## Requirements
 
 - Windows 7 or later
-- .NET 8.0 Runtime
+- .NET 8.0 Runtime (only for framework-dependent build)
 
-## Build
+## Download & Run
+
+Two options:
+
+| Option | Size | Requires Runtime |
+|--------|------|------------------|
+| **Framework-dependent** (`publish\`) | ~200 KB | .NET 8.0 Runtime |
+| **Self-contained** (`publish_selfcontained\`) | ~160 MB | Nothing — includes everything |
+
+### Framework-dependent (smaller)
 
 ```bash
-dotnet publish -c Release
+dotnet publish -c Release -o publish
 ```
+Run on any machine with .NET 8 Runtime installed.
+
+### Self-contained (portable)
+
+```bash
+dotnet publish -c Release --self-contained true -r win-x64 -o publish_selfcontained
+```
+Run on any Windows x64 machine — no runtime needed.
