@@ -28,6 +28,7 @@ public class StartupService
         {
         }
         MigrateOldDisabledEntries(items);
+        CleanupOrphanedDisabled(items);
         return items;
     }
 
@@ -342,6 +343,58 @@ public class StartupService
                     IsEnabled = false
                 });
             }
+        }
+    }
+
+    private void CleanupOrphanedDisabled(List<StartupItem> currentItems)
+    {
+        try
+        {
+            var runKey = Registry.CurrentUser.OpenSubKey(RegistryRunPath);
+            var enabledRunNames = runKey != null
+                ? runKey.GetValueNames()
+                    .Where(n => !n.StartsWith("disabled_", StringComparison.OrdinalIgnoreCase))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            using var disabledKey = Registry.CurrentUser.OpenSubKey(DisabledRegistryPath, writable: true);
+            if (disabledKey != null)
+            {
+                foreach (var name in disabledKey.GetValueNames().ToArray())
+                {
+                    if (!enabledRunNames.Contains(name)) continue;
+                    disabledKey.DeleteValue(name, throwOnMissingValue: false);
+                    var orphan = currentItems.FirstOrDefault(i =>
+                        i.Source == StartupSource.Registry && !i.IsEnabled && i.Name == name);
+                    if (orphan != null) currentItems.Remove(orphan);
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            var startupPath = GetStartupFolderPath();
+            var disabledFolder = GetStartupDisabledFolderPath();
+            if (!Directory.Exists(startupPath) || !Directory.Exists(disabledFolder)) return;
+
+            foreach (var file in Directory.GetFiles(disabledFolder).ToArray())
+            {
+                var fileName = Path.GetFileName(file);
+                var enabledPath = Path.Combine(startupPath, fileName);
+                if (!File.Exists(enabledPath)) continue;
+
+                File.Delete(file);
+                var cleanName = Path.GetFileNameWithoutExtension(file);
+                var orphan = currentItems.FirstOrDefault(i =>
+                    i.Source == StartupSource.StartupFolder && !i.IsEnabled && i.Name == cleanName);
+                if (orphan != null) currentItems.Remove(orphan);
+            }
+        }
+        catch
+        {
         }
     }
 
